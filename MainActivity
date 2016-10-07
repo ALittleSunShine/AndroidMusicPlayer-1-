@@ -1,0 +1,185 @@
+public class MainActivity extends AppCompatActivity implements View.OnClickListener{
+    ImageButton Play;
+    ImageButton Last;
+    ImageButton Next;
+    ImageButton Menu;
+    TextView tv;
+    private int[] _ids;
+    private int[] _album_id;
+    private int[] durations;
+    private String[] _titles;
+    private String[] albums;
+    private String[] artists;
+    private String[] _path;
+    private ContentResolver cr;        //获得共享数据库
+    private Cursor mCursor;            //歌曲信息列表
+    private ListView listView; //列表框，用来展示音乐名称
+    private Cursor c;  //用来查询媒体库
+    private MediaPlayer mediaPlayer =new MediaPlayer();
+    int content =1;
+    int count;
+    public int cc;
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        requestWindowFeature(Window.FEATURE_NO_TITLE);
+        setContentView(R.layout.activity_main);
+        Play = (ImageButton) findViewById(R.id.play);
+        Last = (ImageButton) findViewById(R.id.last);
+        Next = (ImageButton) findViewById(R.id.next);
+        Menu = (ImageButton) findViewById(R.id.menu);
+        tv = (TextView) findViewById(R.id.songname);
+        Play.setOnClickListener(this);
+        Last.setOnClickListener(this);
+        Next.setOnClickListener(this);
+        Menu.setOnClickListener(this);
+        tv.setOnClickListener(this);
+        ActivityCompat.requestPermissions(MainActivity.this,
+                new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},
+                1);
+    }
+    public void setListData() {
+        //查询数据库
+        c = this.getContentResolver().query(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                new String[]{
+                        MediaStore.Audio.Media.TITLE,
+                        MediaStore.Audio.Media.DURATION,
+                        MediaStore.Audio.Media.ARTIST,
+                        MediaStore.Audio.Media._ID,
+                        MediaStore.Audio.Media.ALBUM,
+                        MediaStore.Audio.Media.DATA,
+                        MediaStore.Audio.Media.ALBUM_ID
+                }, null, null, null);
+        c.moveToFirst(); //将游标放到第一处
+        count = c.getCount();//得到媒体库中音乐的个数
+        //初始化数组
+        _ids = new int[count];
+        _album_id = new int[count];
+        durations = new int[count];
+        _titles = new String[count];
+        albums = new String[count];
+        artists = new String[count];
+        _path = new String[count];
+        //为数组赋值
+        for (int i = 0; i < count; i++) {
+            _ids[i] = c.getInt(3);
+            _album_id[i] = c.getInt(6);
+            durations[i] = c.getInt(1);
+            _titles[i] = c.getString(0).trim();
+            albums[i] = c.getString(4).trim();
+            artists[i] = c.getString(2).trim();
+            _path[i] = c.getString(5).trim();
+            c.moveToNext();
+        }
+        // 给列表加载数据
+    }
+    int playp = 0;
+    @Override
+    public void onClick(View v) {
+        switch (v.getId()) {
+            case R.id.play:
+                if (playp == 1) {
+                    playp = 0;
+                    mediaPlayer.pause();
+                    Intent stopIntent=new Intent(this,Myservice.class);
+                    stopService(stopIntent);
+                    Play.setImageResource(R.drawable.play);
+
+                } else {
+                    playp = 1;
+                    Intent startIntent=new Intent(this,Myservice.class);
+                    startService(startIntent);//启动服务
+                    Play.setImageResource(R.drawable.pase);
+                }
+                break;
+            case R.id.last:
+                mediaPlayer.reset();
+                if(content==1) content=count;
+                try {
+                    mediaPlayer.setDataSource(_path[content-1]);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                try {
+                    mediaPlayer.prepare();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                tv.setText(_titles[content-1]);
+                content=content-1;
+                Play.setImageResource(R.drawable.pase);
+                mediaPlayer.start();
+                break;
+            case R.id.next:
+                mediaPlayer.reset();
+                if(content==count) content=1;
+                try {
+                    mediaPlayer.setDataSource(_path[content+1]);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                try {
+                    mediaPlayer.prepare();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                tv.setText(_titles[content+1]);
+                content=content+1;
+                Play.setImageResource(R.drawable.pase);
+                mediaPlayer.start();
+                break;
+            case R.id.menu:
+                Intent intent=new Intent(MainActivity.this,MenuActivity.class);
+                startActivityForResult(intent,1);
+                break;
+        }
+    }
+    @Override   //第二个页面返回值  requestCode请求的标志resultcode第二个页面返回的标志data是第二个页面回传数据
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        Intent startIntent=new Intent(this,Myservice.class);
+        startService(startIntent);//启动服务
+//        if(requestCode==1&&resultCode==2){
+//            content =data.getIntExtra("data",1);
+//               cc=content;
+//            if(mediaPlayer.isPlaying()){
+//                mediaPlayer.reset();
+//            }
+//
+//            try {
+//                mediaPlayer.setDataSource(_path[content]);
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
+//            try {
+//                mediaPlayer.prepare();
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
+//            mediaPlayer.start();
+            playp = 1;
+            Play.setImageResource(R.drawable.pase);
+            tv.setText(_titles[content]);
+   //     }
+    }
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
+        switch (requestCode) {
+            case 1: {
+                // If request is cancelled, the result arrays are empty.
+                if (grantResults.length > 0
+                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    setListData();
+                    // permission was granted, yay! Do the
+                    // contacts-related task you need to do.
+
+                } else {
+
+                    // permission denied, boo! Disable the
+                    // functionality that depends on this permission.
+                }
+                return;
+            }
+        }
+    }
+}
